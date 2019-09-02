@@ -1,0 +1,228 @@
+# Path to the directory with the source files:
+srcdir:= @srcdir@
+
+# Path to the directory with the Fortran module files:
+moddir:= mod
+
+# Paths to the installation directories:
+prefix:= @prefix@
+exec_prefix:= @exec_prefix@
+
+# Package tarname:
+PACKAGE_TARNAME= @PACKAGE_NAME@-@PACKAGE_VERSION@
+
+# Utilities:
+SHELL= @SHELL@
+FC= @FC@
+PYTHON= @PYTHON@
+DEPLIST= ${PYTHON} $(srcdir)/mkhelper/deplist.py
+DEPGEN= ${PYTHON} $(srcdir)/mkhelper/depgen.py
+AR= @AR@
+ARFLAGS= @ARFLAGS@
+INSTALL= @INSTALL@
+INSTALL_DATA=@INSTALL_DATA@
+GIT= git
+TAR= tar
+BZIP2 = bzip2
+
+# Fortran compiler and flags:
+FCFLAGS= @FCMODINC@$(moddir) @FCMODOUT@$(moddir) @NETCDF_FCFLAGS@ @GPTL_FCFLAGS@ @FCFLAGS@
+LDFLAGS= @LDFLAGS@
+LIBS= @NETCDF_FCLIBS@ @GPTL_FCLIBS@ @LIBS@
+
+# Silent rule prefixes:
+V= @DEFAULT_VERBOSITY@
+ifeq ($(V),0)
+silent_FCLD=    @echo "  FCLD    " $@;
+silent_FC=      @echo "  FC      " $@;
+silent_MKDIR=   @echo "  MKDIR   " $(@D);
+silent_DEPGEN=  @echo "  DEPGEN  " $@;
+silent_AR=      @echo "  AR      " $@;
+endif
+
+lib_LIBRARIES:= librte.a librrtmgp.a
+
+librte_a_SOURCES:=                              \
+    rte/kernels/mo_fluxes_broadband_kernels.F90 \
+    rte/mo_fluxes.F90                           \
+    rte/mo_optical_props.F90                    \
+    rte/mo_rte_kind.F90                         \
+    rte/mo_rte_lw.F90                           \
+    rte/mo_rte_sw.F90                           \
+    rte/mo_source_functions.F90                 \
+    rte/mo_util_array.F90
+
+librrtmgp_a_SOURCES:=                     \
+    rrtmgp/kernels/mo_reorder_kernels.F90 \
+    rrtmgp/mo_gas_concentrations.F90      \
+    rrtmgp/mo_gas_optics.F90              \
+    rrtmgp/mo_gas_optics_rrtmgp.F90       \
+    rrtmgp/mo_rrtmgp_constants.F90        \
+    rrtmgp/mo_util_reorder.F90            \
+    rrtmgp/mo_util_string.F90
+
+@OPENACC_ENABLED@rte_kernel_dir:= rte/kernels-openacc
+@OPENACC_ENABLED@rrtmgp_kernel_dir:= rrtmgp/kernels-openacc
+@OPENACC_DISABLED@rte_kernel_dir:= rte/kernels
+@OPENACC_DISABLED@rrtmgp_kernel_dir:= rrtmgp/kernels
+
+librte_a_SOURCES+=                                 \
+    $(rte_kernel_dir)/mo_optical_props_kernels.F90 \
+    $(rte_kernel_dir)/mo_rte_solver_kernels.F90
+
+librrtmgp_a_SOURCES+=                              \
+    $(rrtmgp_kernel_dir)/mo_gas_optics_kernels.F90
+
+check_PROGRAMS:=
+@TESTS_ENABLED@check_PROGRAMS+= \
+@TESTS_ENABLED@    examples/rfmip-clear-sky/rrtmgp_rfmip_lw@EXEEXT@ \
+@TESTS_ENABLED@    examples/rfmip-clear-sky/rrtmgp_rfmip_sw@EXEEXT@
+
+rrtmgp_rfmip_lw_SOURCES =                        \
+    examples/mo_load_coefficients.F90            \
+    examples/mo_simple_netcdf.F90                \
+    examples/rfmip-clear-sky/mo_rfmip_io.F90     \
+    examples/rfmip-clear-sky/rrtmgp_rfmip_lw.F90
+
+rrtmgp_rfmip_sw_SOURCES =                        \
+    examples/mo_load_coefficients.F90            \
+    examples/mo_simple_netcdf.F90                \
+    examples/rfmip-clear-sky/mo_rfmip_io.F90     \
+    examples/rfmip-clear-sky/rrtmgp_rfmip_sw.F90
+
+# Dependency files:
+deps:= $(addsuffix .d,$(librte_a_SOURCES) $(librrtmgp_a_SOURCES))
+check_deps:=
+@TESTS_ENABLED@check_deps+= $(addsuffix .d,$(rrtmgp_rfmip_lw_SOURCES) $(rrtmgp_rfmip_sw_SOURCES))
+
+# Stamp files of the building subdirectories:
+dirstamps= $(addsuffix .dirstamp,$(sort $(dir $(deps) $(check_deps)))) $(moddir)/.dirstamp
+
+# Selective search path:
+vpath %.F90 $(srcdir)
+
+# Disable built-in suffix rules:
+.SUFFIXES:
+# Targets not associated with files:
+.PHONY: all depend dummy-depend mostlyclean clean distclean \
+        maintainer-clean install install-libs install-mods dist check
+# Targets that do not need the inclusion of the dependency files:
+NO_INC_TARGETS:= depend dummy-depend mostlyclean clean distclean \
+                 maintainer-clean dist
+# Keep directory stamps:
+.PRECIOUS: $(dirstamps)
+
+# Default rule:
+all: $(lib_LIBRARIES)
+
+# Explicit dependency generation rule:
+depend: $(deps) $(check_deps)
+
+# Delete the results of compilation and linking:
+mostlyclean:
+	rm -f $(lib_LIBRARIES) $(check_PROGRAMS) $(librte_a_SOURCES:.F90=.@OBJEXT@) $(librrtmgp_a_SOURCES:.F90=.@OBJEXT@) $(rrtmgp_rfmip_lw_SOURCES:.F90=.@OBJEXT@) $(rrtmgp_rfmip_sw_SOURCES:.F90=.@OBJEXT@)
+	rm -f $(moddir)/*.@FCMODEXT@
+	rm -f $(notdir $(librte_a_SOURCES:.F90=.i) $(librrtmgp_a_SOURCES:.F90=.i) $(rrtmgp_rfmip_lw_SOURCES:.F90=.i) $(rrtmgp_rfmip_sw_SOURCES:.F90=.i))
+
+# Delete files generated at the building stage:
+clean: mostlyclean
+
+# Delete everything generated at the configure stage (and clean the created directories if they are empty):
+distclean: clean
+	find -name '*.pyc' -delete -o -name '*.pyo' -delete -o -name '__pycache__' -delete
+	rm -f $(deps) $(check_deps)
+	rm -f $(dirstamps)
+	rm -f examples/rfmip-clear-sky/generate-output-file-templates.py \
+	      examples/rfmip-clear-sky/multiple_input4MIPs_radiation_RFMIP_UColorado-RFMIP-1-2_none.nc \
+	      examples/rfmip-clear-sky/reference/rld_Efx_RTE-RRTMGP-181204_rad-irf_r1i1p1f1_gn.nc \
+	      examples/rfmip-clear-sky/reference/rlu_Efx_RTE-RRTMGP-181204_rad-irf_r1i1p1f1_gn.nc \
+	      examples/rfmip-clear-sky/reference/rsd_Efx_RTE-RRTMGP-181204_rad-irf_r1i1p1f1_gn.nc \
+	      examples/rfmip-clear-sky/reference/rsu_Efx_RTE-RRTMGP-181204_rad-irf_r1i1p1f1_gn.nc \
+	      examples/rfmip-clear-sky/rfmip-clear-sky.test \
+	      examples/rfmip-clear-sky/rld_Efx_RTE-RRTMGP-181204_rad-irf_r1i1p1f1_gn.nc \
+	      examples/rfmip-clear-sky/rlu_Efx_RTE-RRTMGP-181204_rad-irf_r1i1p1f1_gn.nc \
+	      examples/rfmip-clear-sky/rrtmgp-data-lw-g256-2018-12-04.nc \
+	      examples/rfmip-clear-sky/rrtmgp-data-sw-g224-2018-12-04.nc \
+	      examples/rfmip-clear-sky/rsd_Efx_RTE-RRTMGP-181204_rad-irf_r1i1p1f1_gn.nc \
+	      examples/rfmip-clear-sky/rsu_Efx_RTE-RRTMGP-181204_rad-irf_r1i1p1f1_gn.nc \
+	      examples/rfmip-clear-sky/timing.8
+	@for dir in rte rrtmgp examples $(moddir); do \
+	  if test -d "$$dir"; then \
+	    echo "find '$$dir' -type d -empty -delete"; \
+	    find "$$dir" -type d -empty -delete; \
+	  fi; \
+	done
+	rm -f config.log config.status depgen.config Makefile
+
+# Delete files generated at the autoreconf stage:
+maintainer-clean: distclean
+	rm -rf autom4te.cache
+
+# Installation rules:
+install: install-libs install-mods
+
+# Check rule:
+check: $(check_PROGRAMS)
+	cd examples/rfmip-clear-sky && ./rfmip-clear-sky.test
+
+# Tarball creation rule:
+dist:
+	@if test ! -e @top_srcdir@/.git; then echo "'@top_srcdir@' is not a git repository" >&2; exit 1; fi
+	$(GIT) -C @top_srcdir@ archive --prefix=$(PACKAGE_TARNAME)/ --format tar -o @abs_top_builddir@/$(PACKAGE_TARNAME).tar HEAD
+	rm -f $(PACKAGE_TARNAME).tar.bz2 && BZIP2=$${BZIP2--9} $(BZIP2) $(PACKAGE_TARNAME).tar
+
+# Fortran compilation rule:
+%.@OBJEXT@: %.F90 | $(dirstamps)
+	$(silent_FC)$(FC) -o $@ -c $(FCFLAGS) @FCFLAGS_F90@ $<
+
+# Static library generation rule:
+%.a:
+	$(silent_AR)rm -f $@ && $(AR) $(ARFLAGS) $@ $^
+
+# Fortran module file tracking rule:
+@MODULE_TRACKING_ENABLED@$(moddir)/%.@FCMODEXT@:
+@MODULE_TRACKING_ENABLED@	@if test -z $<; then \
+@MODULE_TRACKING_ENABLED@	  echo "Cannot find Fortran source file providing module '$(basename $(@F))'." >&2; \
+@MODULE_TRACKING_ENABLED@	elif test ! -f $@; then \
+@MODULE_TRACKING_ENABLED@	  rm -f $<; $(MAKE) $<; \
+@MODULE_TRACKING_ENABLED@	fi
+
+# Directory creation rule:
+%/.dirstamp:
+	$(silent_MKDIR)@MKDIR_P@ $(@D) && touch $@
+
+# Fortran dependency generation rule:
+%.F90.d: %.F90 Makefile | $(dirstamps)
+	$(silent_DEPGEN)$(DEPGEN) @depgen.config -o $@ --obj-name $(@:.F90.d=.@OBJEXT@) $< -- $(FCFLAGS)
+
+# Dummy dependency file generation rule (called by config.status): 
+dummy-depend: | $(dirstamps)
+	@for file in $(deps) $(check_deps); do \
+	  test -e "$$file" || touch "$$file"; \
+	done
+
+# Library installation rule:
+install-libs: $(lib_LIBRARIES)
+	$(INSTALL) -d $(DESTDIR)@libdir@ && $(INSTALL_DATA) $^ $(DESTDIR)@libdir@
+
+# Fortran module files installation rule:
+install-mods: $(shell $(DEPLIST) -p '*.@FCMODEXT@' -f $(deps))
+	$(INSTALL) -d $(DESTDIR)@includedir@ && $(INSTALL_DATA) $^ $(DESTDIR)@includedir@
+
+librte.a: $(librte_a_SOURCES:.F90=.@OBJEXT@)
+librrtmgp.a: $(librrtmgp_a_SOURCES:.F90=.@OBJEXT@)
+
+examples/rfmip-clear-sky/rrtmgp_rfmip_lw@EXEEXT@: $(rrtmgp_rfmip_lw_SOURCES:.F90=.@OBJEXT@) $(lib_LIBRARIES)
+	$(silent_FCLD)$(FC) -o $@ $(FCFLAGS) $(LDFLAGS) $^ $(LIBS)
+
+examples/rfmip-clear-sky/rrtmgp_rfmip_sw@EXEEXT@: $(rrtmgp_rfmip_sw_SOURCES:.F90=.@OBJEXT@) $(lib_LIBRARIES)
+	$(silent_FCLD)$(FC) -o $@ $(FCFLAGS) $(LDFLAGS) $^ $(LIBS)
+
+current_targets:= $(strip $(MAKECMDGOALS))
+ifeq (,$(current_targets))
+current_targets:= all
+endif
+
+ifneq (,$(filter-out $(NO_INC_TARGETS),$(current_targets)))
+include $(deps) $(check_deps)
+endif

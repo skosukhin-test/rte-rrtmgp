@@ -1,0 +1,6 @@
+#!@SHELL@
+@TESTS_ENABLED@@PYTHON@ @abs_srcdir@/stage_files.py || exit 1
+@TESTS_ENABLED@@PYTHON@ @abs_srcdir@/run-rfmip-examples.py || exit 1
+@TESTS_ENABLED@@PYTHON@ @abs_srcdir@/compare-to-reference.py || exit 1
+@TESTS_ENABLED@exit 0
+echo "The test is skipped."

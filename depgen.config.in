@@ -1,0 +1,6 @@
+--src-root=@srcdir@
+--fc-enable
+--fc-mod-ext=@FCMODEXT@
+--fc-mod-upper=@FCMODUC@
+--fc-mod-dir-flag=@FCMODOUT@
+--fc-external-mods=@DEPGEN_EXTERNAL_MODS@
