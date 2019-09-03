@@ -21,6 +21,8 @@
 ! -------------------------------------------------------------------------------------------------
 module mo_rrtmgp_constants
   use mo_rte_kind, only: wp
+  implicit none
+  public
 
   ! -----------------------------------------
   ! Physical constants, 2018 SI defintion of metric system
