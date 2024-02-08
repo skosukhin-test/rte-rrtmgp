@@ -3,9 +3,7 @@ on:
   push:
     branches-ignore:
     - documentation
-  pull_request:
-    branches-ignore:
-    - documentation
+  workflow_dispatch:
 
 defaults:
   run:
@@ -17,12 +15,3 @@ jobs:
     steps:
     - name: Always
       run: echo 'Hello!'
-    - name: Not in a fork
-      if: github.repository_owner == 'skosukhin'
-      run: echo '${{ github.repository_owner }}'
-    - name: Not in a PR from a fork
-      if: github.event.pull_request.head.repo.owner.login == 'skosukhin'
-      run: echo '${{ github.event.pull_request.head.repo.owner.login }}'
-    - name: Always in the main repo
-      if: github.repository_owner == 'skosukhin' && ( github.event_name != 'pull_request' || github.event.pull_request.head.repo.owner.login == github.repository_owner )
-      run: echo 'Hello again!'
