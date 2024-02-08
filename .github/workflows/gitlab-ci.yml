@@ -1,8 +1,5 @@
 name: GitLab CI
 on:
-  push:
-    branches-ignore:
-    - documentation
   workflow_dispatch:
 
 defaults:
@@ -14,4 +11,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Always
-      run: echo 'Hello!'
+      run: echo 'Hello! (${{ github.sha }})'
