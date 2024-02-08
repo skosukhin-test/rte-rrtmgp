@@ -1,8 +1,5 @@
 name: GitLab CI
 on:
-  push:
-    branches-ignore:
-    - documentation
   workflow_dispatch:
 
 defaults:
